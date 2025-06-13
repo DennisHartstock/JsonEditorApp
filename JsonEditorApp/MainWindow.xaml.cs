@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Microsoft.UI.Xaml.Input;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -80,7 +81,6 @@ namespace JsonEditorApp
             switch (node.GetValueKind())
             {
                 case JsonValueKind.Object:
-                    // Check for $type field for special handling
                     if (node.AsObject().TryGetPropertyValue("$type", out var typeNode) && typeNode.GetValueKind() == JsonValueKind.String)
                     {
                         string type = typeNode.GetValue<string>();
@@ -88,7 +88,6 @@ namespace JsonEditorApp
                     }
                     else
                     {
-                        // Default handling for objects without $type
                         var objectExpander = new Expander();
                         var objectHeaderStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Spacing = 10 };
                         objectHeaderStackPanel.Children.Add(new TextBlock() { Text = GetPathSegment(currentPath) ?? "Object", FontWeight = Microsoft.UI.Text.FontWeights.Bold });
@@ -146,27 +145,8 @@ namespace JsonEditorApp
                 case JsonValueKind.True:
                 case JsonValueKind.False:
                 case JsonValueKind.Null:
-                    var valueStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 5) };
-                    string propertyName = GetPathSegment(currentPath);
-                    if (!string.IsNullOrEmpty(propertyName))
-                    {
-                        valueStackPanel.Children.Add(new TextBlock() { Text = $"{propertyName}:", FontWeight = Microsoft.UI.Text.FontWeights.Bold, Width = 150 });
-                    }
-
-                    var valueTextBox = new TextBox() { Text = node.ToJsonString(), MinWidth = 200 };
-                    valueTextBox.Tag = currentPath;
-                    valueTextBox.LostFocus += ValueTextBox_LostFocus;
-                    valueStackPanel.Children.Add(valueTextBox);
-
-                    var deleteButton = new Button() { Content = "x", Tag = currentPath, FontSize = 10, Padding = new Thickness(5, 0, 5, 0) };
-                    deleteButton.Click += DeleteButton_Click;
-                    valueStackPanel.Children.Add(deleteButton);
-
-                    if (parentItemsControl != null)
-                    {
-                        parentItemsControl.Items.Add(valueStackPanel);
-                    }
-
+                    // Handle simple values with DisplayJsonProperty
+                    DisplayJsonProperty(node.Parent as JsonObject, parentItemsControl as StackPanel, GetParentPath(currentPath), GetPathSegment(currentPath), isEditable: true, node.AsValue()); // Pass JsonValue
                     break;
             }
         }
@@ -425,9 +405,72 @@ namespace JsonEditorApp
             }
         }
 
-        // Helper method to display a single JSON property
-        private void DisplayJsonProperty(JsonObject parentObject, StackPanel parentPanel, string parentPath, string propertyName, bool isEditable)
+        // Event handler for CheckBox checked/unchecked (New)
+        private void BooleanCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
         {
+            if (sender is CheckBox checkBox && checkBox.Tag is string path)
+            {
+                if (_loadedJsonNode != null)
+                {
+                    JsonNode targetNode = FindNodeByPath(_loadedJsonNode, path);
+                    if (targetNode != null && targetNode.GetValueKind() == JsonValueKind.True || targetNode.GetValueKind() == JsonValueKind.False)
+                    {
+                        try
+                        {
+                            // Update the JsonNode value based on CheckBox state
+                            bool newValue = checkBox.IsChecked ?? false; // Default to false if IsChecked is null
+                            ReplaceNode(_loadedJsonNode, path, JsonValue.Create(newValue));
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Error updating boolean value for path {path}: {ex.Message}");
+                            ShowError($"Error updating boolean value for '{GetPathSegment(path)}': {ex.Message}");
+                            // Revert CheckBox state on error? This might be tricky with async handlers
+                        }
+                    }
+                }
+            }
+        }
+
+        // Event handler for Pick File button (New)
+        private async void PickFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is string path)
+            {
+                var openPicker = new FileOpenPicker();
+                openPicker.ViewMode = PickerViewMode.Thumbnail;
+                openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
+                // You might want to set specific file type filters based on the property name or context
+                openPicker.FileTypeFilter.Add("*"); // Allow all files for now
+
+                StorageFile file = await openPicker.PickSingleFileAsync();
+
+                if (file != null)
+                {
+                    // Update the corresponding TextBox with the selected file path
+                    // Find the TextBox associated with this button
+                    if (button.Parent is StackPanel parentStackPanel)
+                    {
+                        foreach (var child in parentStackPanel.Children)
+                        {
+                            if (child is TextBox pathTextBox && pathTextBox.Tag is string textBoxPath && textBoxPath == path)
+                            {
+                                pathTextBox.Text = file.Path;
+                                // Trigger the LostFocus event of the TextBox to update the JsonNode
+                                ValueTextBox_LostFocus(pathTextBox, null); // Pass null for RoutedEventArgs for simplicity
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Helper method to display a single JSON property
+        private void DisplayJsonProperty(JsonObject parentObject, StackPanel parentPanel, string parentPath, string propertyName, bool isEditable, JsonValue propertyValueNode = null)
+        {
+            if (parentObject == null) return; // Handle cases where parentObject is null
+
             if (parentObject.TryGetPropertyValue(propertyName, out var propertyNode))
             {
                 var propertyStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 5) };
@@ -437,10 +480,60 @@ namespace JsonEditorApp
 
                 if (isEditable)
                 {
-                    var valueTextBox = new TextBox() { Text = propertyNode.ToJsonString(), MinWidth = 200 };
-                    valueTextBox.Tag = propertyPath;
-                    valueTextBox.LostFocus += ValueTextBox_LostFocus;
-                    propertyStackPanel.Children.Add(valueTextBox);
+                    // Use different controls based on ValueKind or property name
+                    switch (propertyNode.GetValueKind())
+                    {
+                        case JsonValueKind.String:
+                            // Check if it's a known path property (e.g., file path, DLL path)
+                            if (propertyName.EndsWith("Path") || propertyName.EndsWith("Assembly")) // Basic check
+                            {
+                                // Could add a button to open a file picker
+                                var pathTextBox = new TextBox() { Text = propertyNode.ToJsonString().Trim('"'), MinWidth = 200 }; // Trim quotes for file paths
+                                pathTextBox.Tag = propertyPath;
+                                pathTextBox.LostFocus += ValueTextBox_LostFocus; // Use same handler
+                                propertyStackPanel.Children.Add(pathTextBox);
+                                // Add a file picker button
+                                var pickFileButton = new Button() { Content = "...", Tag = propertyPath, FontSize = 10, Padding = new Thickness(5, 0, 5, 0) };
+                                pickFileButton.Click += PickFileButton_Click;
+                                propertyStackPanel.Children.Add(pickFileButton);
+
+                            }
+                            else
+                            {
+                                var valueTextBox = new TextBox() { Text = propertyNode.ToJsonString().Trim('"'), MinWidth = 200 }; // Trim quotes
+                                valueTextBox.Tag = propertyPath;
+                                valueTextBox.LostFocus += ValueTextBox_LostFocus;
+                                propertyStackPanel.Children.Add(valueTextBox);
+                            }
+                            break;
+                        case JsonValueKind.Number:
+                            var numberTextBox = new TextBox() { Text = propertyNode.ToJsonString(), MinWidth = 200 };
+                            numberTextBox.Tag = propertyPath;
+                            numberTextBox.LostFocus += ValueTextBox_LostFocus;
+                            // Add input validation for numbers (e.g., only allow digits and decimal point)
+                            numberTextBox.InputScope = new InputScope { Names = { new InputScopeName(InputScopeNameValue.Number) } };
+                            propertyStackPanel.Children.Add(numberTextBox);
+                            break;
+                        case JsonValueKind.True:
+                        case JsonValueKind.False:
+                            var booleanCheckBox = new CheckBox() { IsChecked = propertyNode.GetValue<bool>() };
+                            booleanCheckBox.Tag = propertyPath;
+                            booleanCheckBox.Checked += BooleanCheckBox_CheckedChanged;
+                            booleanCheckBox.Unchecked += BooleanCheckBox_CheckedChanged;
+                            propertyStackPanel.Children.Add(booleanCheckBox);
+                            break;
+                        case JsonValueKind.Null:
+                            var nullTextBox = new TextBox() { Text = "null", IsReadOnly = true, MinWidth = 200 }; // Display null as text
+                            nullTextBox.Tag = propertyPath;
+                            // Allow setting to non-null? This is complex and might require a dialog
+                            // For now, keep as read-only representation of null
+                            propertyStackPanel.Children.Add(nullTextBox);
+                            break;
+                        default:
+                            // For other value kinds (Object, Array), display as read-only string representation
+                            propertyStackPanel.Children.Add(new TextBlock() { Text = propertyNode.ToJsonString() });
+                            break;
+                    }
                 }
                 else
                 {
@@ -449,6 +542,7 @@ namespace JsonEditorApp
 
                 parentPanel.Children.Add(propertyStackPanel);
             }
+            // Optional: Add a way to indicate missing properties if they are expected by the schema
         }
 
         // Helper to get the last segment of a JSON path
@@ -514,20 +608,21 @@ namespace JsonEditorApp
                                     {
                                         ShowError($"Invalid number format for '{GetPathSegment(path)}'");
                                         textBox.Text = targetNode.ToJsonString();
-                                        return; // Stop processing on error
+                                        return;
                                     }
                                     break;
                                 case JsonValueKind.True:
                                 case JsonValueKind.False:
+                                    // Handle boolean through CheckBox, but keep this for consistency/fallback
                                     if (bool.TryParse(newValueString, out bool boolValue))
                                     {
                                         newNode = JsonValue.Create(boolValue);
                                     }
                                     else
                                     {
-                                        ShowError($"Invalid boolean format for '{GetPathSegment(path)}'");
+                                        ShowError($"Invalid boolean format for '{GetPathSegment(path)}'. Use CheckBox to edit.");
                                         textBox.Text = targetNode.ToJsonString();
-                                        return; // Stop processing on error
+                                        return;
                                     }
                                     break;
                                 case JsonValueKind.Null:
@@ -539,13 +634,13 @@ namespace JsonEditorApp
                                     {
                                         ShowError($"Cannot set a non-empty value for a null property '{GetPathSegment(path)}'");
                                         textBox.Text = targetNode.ToJsonString();
-                                        return; // Stop processing on error
+                                        return;
                                     }
                                     break;
                                 default:
                                     ShowError($"Editing of value kind '{originalKind}' for property '{GetPathSegment(path)}' is not supported.");
                                     textBox.Text = targetNode.ToJsonString();
-                                    return; // Stop processing on unsupported kind
+                                    return;
                             }
 
                             if (newNode != null)
