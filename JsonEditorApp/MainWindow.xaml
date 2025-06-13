@@ -24,8 +24,8 @@
             <ItemsControl x:Name="JsonTreeItemsControl">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <!-- This DataTemplate needs to be flexible to display different JsonNode types -->
-                        <!-- We'll handle this in code-behind or with DataTemplateSelector -->
+                        <!-- DataTemplate will be defined in code-behind or with a DataTemplateSelector -->
+                        <!-- Placeholder -->
                         <TextBlock Text="Loading..."/>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
