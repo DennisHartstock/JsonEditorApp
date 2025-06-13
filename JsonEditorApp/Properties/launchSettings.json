@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "JsonEditorApp (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "JsonEditorApp (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
