@@ -171,34 +171,283 @@ namespace JsonEditorApp
             }
         }
 
-        // New method to display objects with a $type field
+        // Modified to use specific display methods for typed objects
         private void DisplayTypedObject(JsonObject jsonObject, ItemsControl parentItemsControl, string currentPath, string type)
         {
             var typeExpander = new Expander();
             var typeHeaderStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Spacing = 10 };
-            typeHeaderStackPanel.Children.Add(new TextBlock() { Text = $"{GetPathSegment(currentPath) ?? "Item"} ({type})", FontWeight = Microsoft.UI.Text.FontWeights.Bold }); // Show type in header
+            typeHeaderStackPanel.Children.Add(new TextBlock() { Text = $"{GetPathSegment(currentPath) ?? "Item"} ({type})", FontWeight = Microsoft.UI.Text.FontWeights.Bold });
 
-            // Add delete button for typed object
             var deleteButton = new Button() { Content = "x", Tag = currentPath, FontSize = 10, Padding = new Thickness(5, 0, 5, 0) };
-            deleteButton.Click += DeleteButton_Click; // Use the same delete handler
+            deleteButton.Click += DeleteButton_Click;
             typeHeaderStackPanel.Children.Add(deleteButton);
-
 
             typeExpander.Header = typeHeaderStackPanel;
 
-            var typeItemsControl = new ItemsControl() { Margin = new Thickness(10, 0, 0, 0) };
-            typeExpander.Content = typeItemsControl;
+            var typeContentPanel = new StackPanel() { Margin = new Thickness(10, 0, 0, 0) };
+            typeExpander.Content = typeContentPanel;
 
             if (parentItemsControl != null)
             {
                 parentItemsControl.Items.Add(typeExpander);
             }
 
-            // Display properties of the typed object
-            foreach (var property in jsonObject)
+            // Call specific display method based on type
+            switch (type)
             {
-                string newPath = string.IsNullOrEmpty(currentPath) ? property.Key : $"{currentPath}.{property.Key}";
-                DisplayJsonNode(property.Value, typeItemsControl, newPath); // Recursively display child nodes
+                case "CollisionBox":
+                    DisplayCollisionBox(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "StageTest":
+                    DisplayStageTest(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "StageBR":
+                    DisplayStageBR(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "AxisBR":
+                    DisplayAxisBR(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "AxisStandard":
+                    DisplayAxisStandard(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "DetectorSL":
+                    DisplayDetectorSL(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "TestSource":
+                    DisplayTestSource(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "SourceHamamatsu":
+                    DisplaySourceHamamatsu(jsonObject, typeContentPanel, currentPath);
+                    break;
+                case "StartupDevice":
+                    DisplayStartupDevice(jsonObject, typeContentPanel, currentPath);
+                    break;
+
+                default:
+                    // Default display for unknown typed objects
+                    foreach (var property in jsonObject)
+                    {
+                        string newPath = string.IsNullOrEmpty(currentPath) ? property.Key : $"{currentPath}.{property.Key}";
+                        DisplayJsonNode(property.Value, new ItemsControl() { Items = typeContentPanel.Children }, newPath);
+                    }
+                    break;
+            }
+        }
+
+        // Example display method for CollisionBox
+        private void DisplayCollisionBox(JsonObject collisionBoxObject, StackPanel parentPanel, string currentPath)
+        {
+            // Display and edit specific properties of CollisionBox
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "ActorId", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MinX", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MaxX", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MinY", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MaxY", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MinZ", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "MaxZ", isEditable: true);
+            DisplayJsonProperty(collisionBoxObject, parentPanel, currentPath, "IsStatic", isEditable: true);
+
+            // Recursively display any other properties (if any)
+            foreach (var property in collisionBoxObject)
+            {
+                if (property.Key != "$type" && property.Key != "ActorId" &&
+                    property.Key != "MinX" && property.Key != "MaxX" &&
+                    property.Key != "MinY" && property.Key != "MaxY" &&
+                    property.Key != "MinZ" && property.Key != "MaxZ" &&
+                    property.Key != "IsStatic")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath); // Pass ItemsControl with StackPanel's children
+                }
+            }
+        }
+
+        // Example display method for StageTest
+        private void DisplayStageTest(JsonObject stageTestObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(stageTestObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            // Add other specific properties for StageTest
+            DisplayJsonProperty(stageTestObject, parentPanel, currentPath, "SomeStageTestProperty", isEditable: true); // Example
+
+            // Recursively display any other properties
+            foreach (var property in stageTestObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId" && property.Key != "SomeStageTestProperty")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayStageBR(JsonObject stageBRObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(stageBRObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            // Add other specific properties for StageBR
+            // Example: if StageBR had a property like "BRSetting"
+            // DisplayJsonProperty(stageBRObject, parentPanel, currentPath, "BRSetting", isEditable: true);
+
+
+            foreach (var property in stageBRObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayAxisBR(JsonObject axisBRObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "ControllerId", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "AxisNodeId", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "Movement", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "MoveAfterInit", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "AxisName", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "DefaultVelocity", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "DefaultAcceleration", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "LimMin", isEditable: true);
+            DisplayJsonProperty(axisBRObject, parentPanel, currentPath, "LimMax", isEditable: true);
+
+            foreach (var property in axisBRObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId" && property.Key != "ControllerId" &&
+                    property.Key != "AxisNodeId" && property.Key != "Movement" && property.Key != "MoveAfterInit" &&
+                    property.Key != "AxisName" && property.Key != "DefaultVelocity" && property.Key != "DefaultAcceleration" &&
+                    property.Key != "LimMin" && property.Key != "LimMax")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayAxisStandard(JsonObject axisStandardObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "ControllerId", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "AxisNodeId", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "Movement", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "MoveAfterInit", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "LimMin", isEditable: true);
+            DisplayJsonProperty(axisStandardObject, parentPanel, currentPath, "LimMax", isEditable: true);
+
+            foreach (var property in axisStandardObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId" && property.Key != "ControllerId" &&
+                    property.Key != "AxisNodeId" && property.Key != "Movement" && property.Key != "MoveAfterInit" &&
+                    property.Key != "LimMin" && property.Key != "LimMax")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayDetectorSL(JsonObject detectorSLObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(detectorSLObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            DisplayJsonProperty(detectorSLObject, parentPanel, currentPath, "Flip90ClockW", isEditable: true);
+
+            // Handle nested arrays/objects within DetectorSL (e.g., DetectorModes)
+            if (detectorSLObject.TryGetPropertyValue("DetectorModes", out var modesNode) && modesNode is JsonArray modesArray)
+            {
+                var modesExpander = new Expander() { Header = "Detector Modes", Margin = new Thickness(0, 5, 0, 0) };
+                var modesItemsControl = new ItemsControl() { Margin = new Thickness(10, 0, 0, 0) };
+                modesExpander.Content = modesItemsControl;
+                parentPanel.Children.Add(modesExpander);
+
+                int index = 0;
+                foreach (var modeItem in modesArray)
+                {
+                    string modePath = $"{currentPath}.DetectorModes[{index}]";
+                    DisplayJsonNode(modeItem, modesItemsControl, modePath); // Recursively display modes
+                    index++;
+                }
+            }
+
+
+            foreach (var property in detectorSLObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId" && property.Key != "Flip90ClockW" && property.Key != "DetectorModes")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayTestSource(JsonObject testSourceObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(testSourceObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            DisplayJsonProperty(testSourceObject, parentPanel, currentPath, "MaxCurrent", isEditable: true);
+
+            foreach (var property in testSourceObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId" && property.Key != "MaxCurrent")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplaySourceHamamatsu(JsonObject hamamatsuSourceObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(hamamatsuSourceObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+            // Add other specific properties for SourceHamamatsu
+            // Example: DisplayJsonProperty(hamamatsuSourceObject, parentPanel, currentPath, "HamamatsuSetting", isEditable: true);
+
+
+            foreach (var property in hamamatsuSourceObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        private void DisplayStartupDevice(JsonObject startupDeviceObject, StackPanel parentPanel, string currentPath)
+        {
+            DisplayJsonProperty(startupDeviceObject, parentPanel, currentPath, "DeviceId", isEditable: true);
+
+            foreach (var property in startupDeviceObject)
+            {
+                if (property.Key != "$type" && property.Key != "DeviceId")
+                {
+                    string newPath = $"{currentPath}.{property.Key}";
+                    DisplayJsonNode(property.Value, new ItemsControl() { Items = parentPanel.Children }, newPath);
+                }
+            }
+        }
+
+        // Helper method to display a single JSON property
+        private void DisplayJsonProperty(JsonObject parentObject, StackPanel parentPanel, string parentPath, string propertyName, bool isEditable)
+        {
+            if (parentObject.TryGetPropertyValue(propertyName, out var propertyNode))
+            {
+                var propertyStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 5) };
+                propertyStackPanel.Children.Add(new TextBlock() { Text = $"{propertyName}:", FontWeight = Microsoft.UI.Text.FontWeights.Bold, Width = 150 });
+
+                string propertyPath = $"{parentPath}.{propertyName}";
+
+                if (isEditable)
+                {
+                    var valueTextBox = new TextBox() { Text = propertyNode.ToJsonString(), MinWidth = 200 };
+                    valueTextBox.Tag = propertyPath;
+                    valueTextBox.LostFocus += ValueTextBox_LostFocus;
+                    propertyStackPanel.Children.Add(valueTextBox);
+                }
+                else
+                {
+                    propertyStackPanel.Children.Add(new TextBlock() { Text = propertyNode.ToJsonString() });
+                }
+
+                parentPanel.Children.Add(propertyStackPanel);
             }
         }
 
@@ -501,6 +750,8 @@ namespace JsonEditorApp
             }
         }
 
+
+
         // Event handler for Add Item button (MODIFIED)
         private async void AddItemButton_Click(object sender, RoutedEventArgs e)
         {
@@ -558,13 +809,12 @@ namespace JsonEditorApp
             }
         }
 
-        // Helper to create a default JsonObject for a given type (basic implementation)
+        // Helper to create a default JsonObject for a given type (Same as before, needs expansion)
         private JsonObject CreateDefaultObjectForType(string type)
         {
             JsonObject newObject = new JsonObject();
-            newObject.Add("$type", type); // Add the type field
+            newObject.Add("$type", type);
 
-            // Add some basic default properties based on the type (you'll need to expand this)
             switch (type)
             {
                 case "CollisionBox":
@@ -579,7 +829,7 @@ namespace JsonEditorApp
                     break;
                 case "StageTest":
                     newObject.Add("DeviceId", "NewStageTest");
-                    // Add other default properties for StageTest
+                    newObject.Add("SomeStageTestProperty", "DefaultValue"); // Example property
                     break;
                 case "StageBR":
                     newObject.Add("DeviceId", "NewStageBR");
@@ -609,11 +859,10 @@ namespace JsonEditorApp
                     newObject.Add("DeviceId", "NewSourceHamamatsu");
                     // Add other default properties for SourceHamamatsu
                     break;
-                case "StartupDevice": // Generic type for Startup array
+                case "StartupDevice":
                     newObject.Add("DeviceId", "NewStartupDevice");
                     break;
                 default:
-                    // Handle unknown types - maybe return null or a basic object
                     return null;
             }
 
