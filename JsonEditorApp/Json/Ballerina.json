@@ -1,0 +1,182 @@
+{
+  "$schema": "./json-devices-schema.json",
+  "SystemId": "System1",
+  "Assemblies": [
+    {
+      "Assembly": "DLLs\\TestDetector.dll",
+      "Type": "TestDetector.TestDetectorCreator",
+      "Alias": "DetectorTest"
+    },
+    {
+      "Assembly": "DLLs\\DetectorSpectrumLogic.dll",
+      "Type": "DetectorSpectrumLogic.DetectorSpectrumLogicCreator",
+      "Alias": "DetectorSL"
+    },
+    {
+      "Assembly": "DLLs\\TestSource.dll",
+      "Type": "TestSource.TestSourceCreator",
+      "Alias": "TestSource"
+    },
+    {
+      "Assembly": "DLLs\\SourceHamamatsu.dll",
+      "Type": "SourceHamamatsu.HamamatsuSourceCreator",
+      "Alias": "HamamatsuL9181"
+    },
+    {
+      "Assembly": "DLLs\\TestStage.dll",
+      "Type": "TestStage.TestStageCreator",
+      "Alias": "StageTest"
+    },    
+    {
+      "Assembly": "DLLs\\StageBR.dll",
+      "Type": "StageBR.BrStageCreator_II",
+      "Alias": "StageBR"
+    },
+    {
+      "Assembly": "DLLs\\StageBR.dll",
+      "Type": "StageBR.BrAxisCreator",
+      "Alias": "AxisBR"
+    }
+  ],
+  "AxesConfiguration": {
+    "AxisNodes": [
+      {
+        "NodeId": "MainNode",
+        "CollisionActors": [
+          {
+            "$type": "CollisionBox",
+            "ActorId": "CollisionBoxMain",
+            "MinX": -0.1,
+            "MaxX": 0.1,
+            "MinY": -200.0,
+            "MaxY": 0.0,
+            "MinZ": -150.0,
+            "MaxZ": 100.0,
+            "IsStatic": false
+          },
+          {
+            "$type": "CollisionBox",
+            "ActorId": "CollisionBoxSource",
+            "MinX": -100.0,
+            "MaxX": 100.0,
+            "MinY": -100.0,
+            "MaxY": 300.0,
+            "MinZ": -100.0,
+            "MaxZ": 0.0,
+            "IsStatic": true
+          }
+        ]
+      },
+      {
+        "NodeId": "DetectorNode",
+        "CollisionActors": [
+          {
+            "$type": "CollisionBox",
+            "ActorId": "CollisionBoxDetector",
+            "MinX": -200.0,
+            "MaxX": 200.0,
+            "MinY": -200.0,
+            "MaxY": 200.0,
+            "MinZ": -150.0,
+            "MaxZ": 10.0,
+            "IsStatic": false
+          }
+        ]
+      }
+    ],
+    "StageControllers": [
+      {
+        "$type": "StageTest",
+        "DeviceId": "StageController"
+      },
+      {
+        "$type": "StageBR",
+        "DeviceId": "StageControllerBR"
+      }
+    ],
+    "Axes": [
+      {
+        "$type": "AxisBR",
+        "DeviceId": "Spec_TransZ",
+        "ControllerId": "StageControllerBR",
+        "AxisNodeId": "MainNode",
+        "Movement": "TransZ",
+        "MoveAfterInit": 300,
+        "AxisName": "STZ",
+        "DefaultVelocity": 40,
+        "DefaultAcceleration": 100,
+        "LimMin": 0,
+        "LimMax": 600
+      },
+      {
+        "$type": "AxisBR",
+        "DeviceId": "Spec_RotY",
+        "ControllerId": "StageControllerBR",
+        "AxisNodeId": "MainNode",
+        "Movement": "RotY",
+        "AxisName": "SRY",
+        "DefaultVelocity": 20,
+        "DefaultAcceleration": 50,
+        "LimMin": -72000,
+        "LimMax": 72000
+      },
+      {
+        "$type": "AxisStandard",
+        "DeviceId": "Det_TransZ",
+        "ControllerId": "StageController",
+        "AxisNodeId": "DetectorNode",
+        "Movement": "TransZ",
+        "MoveAfterInit": 900,
+        "LimMin": 300,
+        "LimMax": 1000
+      }
+    ]
+  },
+  "Detectors": [
+    {
+      "$type": "DetectorSL",
+      "DeviceId": "XRayDetector",
+      "Flip90ClockW": 0,
+      "DetectorModes": [
+        {
+          "Description": "1x1 Binning",
+          "ImgWidth": 2803,
+          "ImgHeight": 2401,
+          "PixelSize": 100,
+          "BinX": 1,
+          "BinY": 1
+        }
+      ]
+    }
+  ],
+  "Sources": [
+    {
+      "$type": "TestSource",
+      "DeviceId": "XRaySource",
+      "MaxCurrent": 300
+    }
+  ],
+  "Startup": [
+    {
+      "DeviceId": "StageController"
+    },
+    {
+      "DeviceId": "StageControllerBR"
+    },
+    {
+      "DeviceId": "Spec_RotY"
+    },
+    {
+      "DeviceId": "Spec_TransZ"
+    },
+    {
+      "DeviceId": "Det_TransZ"
+    },
+    {
+      "DeviceId": "XRaySource"
+    },
+    {
+      "DeviceId": "XRayDetector"
+    }
+  ]
+}

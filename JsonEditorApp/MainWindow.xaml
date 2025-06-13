@@ -4,22 +4,33 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:JsonEditorApp"
     mc:Ignorable="d">
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <StackPanel Orientation="Horizontal" Grid.Row="0" Margin="10">
             <Button Content="Open JSON File" Click="OpenJsonFileButton_Click"/>
+            <Button Content="Save JSON File" Click="SaveJsonFileButton_Click" Margin="10,0,0,0"/>
         </StackPanel>
 
+        <!-- Display and Edit JSON Data hierarchically -->
         <ScrollViewer Grid.Row="1" Margin="10">
-            <StackPanel x:Name="JsonDataPanel">
-                <!-- JSON data will be displayed here -->
-            </StackPanel>
+            <ItemsControl x:Name="JsonTreeItemsControl">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <!-- This DataTemplate needs to be flexible to display different JsonNode types -->
+                        <!-- We'll handle this in code-behind or with DataTemplateSelector -->
+                        <TextBlock Text="Loading..."/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </ScrollViewer>
+
     </Grid>
 </Window>

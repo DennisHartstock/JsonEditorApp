@@ -1,20 +1,14 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Data;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
-using Windows.Foundation;
-using Windows.Foundation.Collections;
+using System.Text.Json.Nodes; // Required for JsonNode
 using Windows.Storage;
 using Windows.Storage.Pickers;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -26,6 +20,9 @@ namespace JsonEditorApp
     /// </summary>
     public sealed partial class MainWindow : Window
     {
+        private JsonNode _loadedJsonNode; // Use JsonNode to hold the entire JSON structure
+        private StorageFile _currentFile; // To keep track of the currently opened file
+
         public MainWindow()
         {
             this.InitializeComponent();
@@ -33,55 +30,81 @@ namespace JsonEditorApp
 
         private async void OpenJsonFileButton_Click(object sender, RoutedEventArgs e)
         {
-            // Clear previous data
-            JsonDataPanel.Children.Clear();
-
-            // Configure file picker
             var openPicker = new FileOpenPicker();
             openPicker.ViewMode = PickerViewMode.Thumbnail;
             openPicker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             openPicker.FileTypeFilter.Add(".json");
 
-            // Open the file picker
             StorageFile file = await openPicker.PickSingleFileAsync();
 
             if (file != null)
             {
-                // Read the JSON file
-                string jsonContent = await FileIO.ReadTextAsync(file);
-
-                // Deserialize the JSON
-                using (JsonDocument document = JsonDocument.Parse(jsonContent))
+                try
                 {
-                    JsonElement root = document.RootElement;
-                    DisplayJsonElement(root, JsonDataPanel);
+                    string jsonContent = await FileIO.ReadTextAsync(file);
+
+                    // Parse the JSON content into a JsonNode tree
+                    _loadedJsonNode = JsonNode.Parse(jsonContent);
+                    _currentFile = file; // Store the file for saving
+
+                    // Display the JsonNode tree in the UI
+                    DisplayJsonNode(_loadedJsonNode, JsonTreeItemsControl);
+                }
+                catch (Exception ex)
+                {
+                    // Handle potential parsing errors
+                    System.Diagnostics.Debug.WriteLine($"Error parsing JSON: {ex.Message}");
+                    _loadedJsonNode = null; // Clear loaded data
+                    JsonTreeItemsControl.ItemsSource = null; // Clear UI
+                    _currentFile = null; // Clear file reference
+                    // Show error message to user
                 }
             }
         }
 
-        private void DisplayJsonElement(JsonElement element, StackPanel parentPanel)
+        private void DisplayJsonNode(JsonNode node, ItemsControl parentItemsControl, string propertyName = null)
         {
-            switch (element.ValueKind)
+            if (node == null) return;
+
+            switch (node.GetValueKind())
             {
                 case JsonValueKind.Object:
-                    foreach (JsonProperty property in element.EnumerateObject())
+                    var objectExpander = new Expander();
+                    objectExpander.Header = propertyName ?? "Object"; // Use property name as header
+                    var objectStackPanel = new StackPanel() { Margin = new Thickness(10, 0, 0, 0) };
+                    objectExpander.Content = objectStackPanel;
+
+                    if (parentItemsControl != null)
                     {
-                        StackPanel propertyPanel = new StackPanel() { Orientation = Orientation.Vertical, Margin = new Thickness(0, 5, 0, 5) };
-                        TextBlock nameTextBlock = new TextBlock() { Text = property.Name, FontWeight = Microsoft.UI.Text.FontWeights.Bold };
-                        propertyPanel.Children.Add(nameTextBlock);
-                        DisplayJsonElement(property.Value, propertyPanel);
-                        parentPanel.Children.Add(propertyPanel);
+                        parentItemsControl.Items.Add(objectExpander);
+                    }
+
+                    foreach (var property in node.AsObject())
+                    {
+                        // Recursively display child nodes
+                        DisplayJsonNode(property.Value, new ItemsControl() { ItemsSource = new List<JsonNode>() }, property.Key); // Pass a new ItemsControl for children
+                                                                                                                                  // We need to add the child items directly to the objectStackPanel, not a new ItemsControl
+                                                                                                                                  // This requires rethinking how we structure the UI hierarchy and pass parent containers
                     }
                     break;
                 case JsonValueKind.Array:
-                    int index = 0;
-                    foreach (JsonElement item in element.EnumerateArray())
+                    var arrayExpander = new Expander();
+                    arrayExpander.Header = propertyName ?? "Array"; // Use property name as header
+                    var arrayItemsControl = new ItemsControl() { Margin = new Thickness(10, 0, 0, 0) };
+                    arrayExpander.Content = arrayItemsControl;
+
+                    if (parentItemsControl != null)
                     {
-                        StackPanel itemPanel = new StackPanel() { Orientation = Orientation.Vertical, Margin = new Thickness(10, 0, 0, 0) };
-                        TextBlock indexTextBlock = new TextBlock() { Text = $"[{index}]", FontStyle = Windows.UI.Text.FontStyle.Italic };
-                        itemPanel.Children.Add(indexTextBlock);
-                        DisplayJsonElement(item, itemPanel);
-                        parentPanel.Children.Add(itemPanel);
+                        parentItemsControl.Items.Add(arrayExpander);
+                    }
+
+
+                    int index = 0;
+                    foreach (var item in node.AsArray())
+                    {
+                        // Recursively display array items
+                        DisplayJsonNode(item, new ItemsControl() { ItemsSource = new List<JsonNode>() }, $"[{index}]"); // Use index as header
+                                                                                                                        // Similar issue as with objects, need to add to the arrayItemsControl
                         index++;
                     }
                     break;
@@ -90,9 +113,45 @@ namespace JsonEditorApp
                 case JsonValueKind.True:
                 case JsonValueKind.False:
                 case JsonValueKind.Null:
-                    TextBox valueTextBox = new TextBox() { Text = element.ToString(), IsReadOnly = false }; // Make it editable
-                    parentPanel.Children.Add(valueTextBox);
+                    // Display and edit simple values
+                    var valueStackPanel = new StackPanel() { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 5) };
+                    if (!string.IsNullOrEmpty(propertyName))
+                    {
+                        valueStackPanel.Children.Add(new TextBlock() { Text = $"{propertyName}:", FontWeight = Microsoft.UI.Text.FontWeights.Bold, Width = 150 });
+                    }
+                    var valueTextBox = new TextBox() { Text = node.ToJsonString(), MinWidth = 200 }; // Display value as string
+                    // We need a way to bind this TextBox back to the JsonNode value
+                    // This requires a custom binding approach or updating the JsonNode manually on TextBox change
+
+                    valueStackPanel.Children.Add(valueTextBox);
+
+                    if (parentItemsControl != null)
+                    {
+                        parentItemsControl.Items.Add(valueStackPanel);
+                    }
+
                     break;
+            }
+        }
+
+
+        private async void SaveJsonFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_loadedJsonNode != null && _currentFile != null)
+            {
+                try
+                {
+                    // Serialize the modified JsonNode tree
+                    string jsonContent = _loadedJsonNode.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+
+                    await FileIO.WriteTextAsync(_currentFile, jsonContent);
+                }
+                catch (Exception ex)
+                {
+                    // Handle potential serialization or file writing errors
+                    System.Diagnostics.Debug.WriteLine($"Error saving JSON: {ex.Message}");
+                    // Show error message to user
+                }
             }
         }
     }

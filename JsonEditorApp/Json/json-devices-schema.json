@@ -1,0 +1,69 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema",
+  "title": "JSON Schema for XTomServer device config files",
+
+  "type": "object",
+
+  "properties": {
+    "SystemId": {
+      "type": "string",
+      "description": "A unique identifier for the CT system."
+    },
+    "Assemblies": {
+      "type": "array",
+      "description": "An array of assemblies.",
+      "uniqueItems": true,
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required":["Assembly", "Type", "Alias"],
+        "properties": {
+          "Assembly":{
+            "type": "string",
+            "description": "Relative path to device dll."
+          },
+          "Type":{
+            "type": "string",
+            "description": "Relative path to device dll."
+          },
+          "Alias":{
+            "type": "string",
+            "description": "Alias name of the dll."
+          }
+        }
+      }
+    },
+    "AxesConfiguration":{
+      "type": "object",
+      "description": "An array of assemblies.",      
+      "properties": {
+          "AxisNodes":{
+            "type": "array",
+            "description": "Relative path to device dll.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required":["NodeId"],
+              "properties": {
+                "NodeId":{
+                  "type": "string"
+                },
+                "CollisionActors":{
+
+                }
+              }
+            }
+          },
+          "Type":{
+            "type": "string",
+            "description": "Relative path to device dll."
+          },
+          "Alias":{
+            "type": "string",
+            "description": "Alias name of the dll."
+          }
+        }        
+      }
+    
+    }
+}
